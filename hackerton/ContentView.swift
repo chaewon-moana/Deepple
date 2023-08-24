@@ -11,21 +11,21 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         VStack {
-            RoundedRectangle(cornerRadius: 32)
-                .frame(width: 960, height: 635)
-                .foregroundColor(.secondary)
-                .overlay(
-                    Text("Advertisement Area")
-                        .foregroundColor(.white)
-                        .font(.system(size: 50))
-                )
+//            RoundedRectangle(cornerRadius: 32)
+//                //.frame(width: 960, height: 635)
+//                .foregroundColor(.secondary)
+//                .overlay(
+//                    Text("Advertisement Area")
+//                        .foregroundColor(.white)
+//                        .font(.system(size: 50))
+//                )
             
-            HStack{
+           
                 RoundedRectangle(cornerRadius: 32)
-                    .frame(width: 464, height: 604)
+                   // .frame(width: 464, height: 604)
                 
                 OrderButtonView()
-            }
+            
         }
         .foregroundColor(.gray)
         

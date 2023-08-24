@@ -7,75 +7,83 @@
 
 import AVFoundation
 import SwiftUI
+import Speech
 
-struct OrderButtonView: View {
-    @State private var audioRecorder: AVAudioRecorder?
-    @State private var isRecording = false
+class SpeechManager: ObservableObject {
+    @Published var outputText = ""
+    @Published var isRecording = false
+    
+    private var audioEngine = AVAudioEngine()
+    private var speechRecognizer: SFSpeechRecognizer?
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    
+    init() {
+        speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "ko-KR"))
+    }
     
     func startRecording() {
-        let recordingSession = AVAudioSession.sharedInstance()
+        isRecording = true
+        outputText = ""
         
+        let node = audioEngine.inputNode
+        let recordingFormat = node.outputFormat(forBus: 0)
+        
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { fatalError("Unable to create an SFSpeechAudioBufferRecognitionRequest object") }
+        recognitionRequest.shouldReportPartialResults = true
+        
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
+            if let result = result {
+                self.outputText = result.bestTranscription.formattedString
+            } else if let error = error {
+                print("인식 실패 - \(error)")
+            }
+        }
+        
+        node.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+            recognitionRequest.append(buffer)
+        }
+        
+        audioEngine.prepare()
         do {
-            try recordingSession.setCategory(.playAndRecord, mode: .default)
-            try recordingSession.setActive(true)
-            
-            let audioFilename = getDocumentsDirectory().appendingPathComponent("orderRecording.m4a")
-            print(audioFilename)
-            let settings = [
-                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVSampleRateKey: 44100,
-                AVNumberOfChannelsKey: 2,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-            ]
-            
-            audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
-            audioRecorder?.record()
-            isRecording = true
+            try audioEngine.start()
         } catch {
-            print("Recording failed: \(error)")
+            print("audioEngine - Error : \(error)")
         }
     }
     
     func stopRecording() {
-        audioRecorder?.stop()
         isRecording = false
+        recognitionRequest?.endAudio()
+        audioEngine.stop()
+        recognitionTask?.cancel()
     }
-    
-    func getDocumentsDirectory() -> URL {
-        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-    }
-    
-    
+}
+
+struct OrderButtonView: View {
+    @StateObject private var speechManager = SpeechManager()
     
     var body: some View{
-        
         VStack {
-            if isRecording {
-                Text("주문을 듣고 있습니다")
-                    .foregroundColor(.red)
-            }
+            Text(speechManager.outputText)
+                .padding()
+            
             Button(action: {
-                if isRecording {
-                    stopRecording()
+                if speechManager.isRecording {
+                    speechManager.stopRecording()
                 } else {
-                    startRecording()
+                    speechManager.startRecording()
                 }
             }) {
-                Text(isRecording ? "녹음 중지" : "녹음 시작")
-                    .padding()
-                    .background(isRecording ? Color.red : Color.green)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+                Text(speechManager.isRecording ? "녹음 중단" : "녹음 시작")
             }
-            
         }
         
-
         RoundedRectangle(cornerRadius: 32)
-            .frame(width: 464, height: 604)
-        
-        
-        
+        //.frame(width: 464, height: 604)
         
     }
+    
+    
 }
