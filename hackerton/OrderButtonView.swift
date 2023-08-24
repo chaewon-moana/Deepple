@@ -27,11 +27,11 @@ class SpeechManager: ObservableObject {
         outputText = ""
         
         let node = audioEngine.inputNode
-        let recordingFormat = node.outputFormat(forBus: 0)
         
         recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest = recognitionRequest else { fatalError("Unable to create an SFSpeechAudioBufferRecognitionRequest object") }
-        recognitionRequest.shouldReportPartialResults = true
+        guard let recognitionRequest = recognitionRequest else { fatalError("recognitionRequest - error") }
+        recognitionRequest.shouldReportPartialResults = true //true -> 실시간으로 변환
+       // recognitionRequest.shouldReportPartialResults = false //false -> 종료 후 한꺼번에 변환
         
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
             if let result = result {
@@ -41,36 +41,49 @@ class SpeechManager: ObservableObject {
             }
         }
         
+        let recordingFormat = node.outputFormat(forBus: 0)
+        //마이크 통해 들어온 음성 append
         node.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             recognitionRequest.append(buffer)
         }
         
         audioEngine.prepare()
+        
+        
         do {
             try audioEngine.start()
         } catch {
-            print("audioEngine - Error : \(error)")
+           // print("audioEngine - Error : \(error)")
         }
+        
+        
     }
     
     func stopRecording() {
-        isRecording = false
-        recognitionRequest?.endAudio()
+        audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
+        recognitionRequest?.endAudio()
+        isRecording = false
         recognitionTask?.cancel()
     }
+    
+    
 }
 
 struct OrderButtonView: View {
     @StateObject private var speechManager = SpeechManager()
+    @State private var result: [String] = []
     
     var body: some View{
         VStack {
+            //여기 speechManager.outputText를 베니AI가 만든 ML에 넣어야 됨
             Text(speechManager.outputText)
                 .padding()
             
             Button(action: {
                 if speechManager.isRecording {
+                    result.append(speechManager.outputText)
+                    print(result)
                     speechManager.stopRecording()
                 } else {
                     speechManager.startRecording()
